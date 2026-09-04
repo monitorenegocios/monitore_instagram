@@ -25,4 +25,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/posts.json
           git diff --cached --quiet || git commit -m "chore: atualizar posts do blog"
+      - name: Sincronizar e enviar atualizações
+        run: |
+          git pull --rebase origin main
           git push
