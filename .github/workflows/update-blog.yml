@@ -18,7 +18,8 @@ jobs:
 
       - name: Testar acesso ao RSS
         run: |
-          curl -I -L -A "Mozilla/5.0" https://www.monitorenegocios.com.br/blogs/feed
+          curl -I -L -A "Mozilla/5.0" https://www.monitorenegocios.com.br/blogs/feed -o /tmp/rss.xml
+          echo "RSS acessado com sucesso."
 
       - name: Atualizar posts e imagens do RSS do Zoho
         run: python3 scripts/update_blog.py
