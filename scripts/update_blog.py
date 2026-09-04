@@ -1,165 +1,256 @@
 import json
 import re
 import urllib.request
-import xml.etree.ElementTree as ET
-from html import unescape
+from html.parser import HTMLParser
 from pathlib import Path
-from email.utils import parsedate_to_datetime
+from urllib.parse import urljoin
 
-RSS = "https://www.monitorenegocios.com.br/blog-feed.xml"
+BLOG_URL = "https://www.monitorenegocios.com.br/blogs/"
 OUT = Path("data/posts.json")
 
-NS = {
-    "content": "http://purl.org/rss/1.0/modules/content/",
-    "media": "http://search.yahoo.com/mrss/"
-}
+
+class BlogParser(HTMLParser):
+
+    def __init__(self):
+        super().__init__()
+
+        self.posts = []
+        self.current_link = None
+        self.current_text = []
+
+        self.meta = {}
+
+    def handle_starttag(self, tag, attrs):
+
+        attrs = dict(attrs)
+
+        if tag == "a":
+
+            href = attrs.get("href", "")
+
+            if "/blogs/post/" in href:
+
+                self.current_link = urljoin(
+                    BLOG_URL,
+                    href
+                )
+
+                self.current_text = []
+
+        if tag == "meta":
+
+            name = (
+                attrs.get("property")
+                or attrs.get("name")
+                or ""
+            ).lower()
+
+            content = attrs.get("content", "")
+
+            if name and content:
+
+                self.meta[name] = content
+
+    def handle_data(self, data):
+
+        if self.current_link:
+
+            self.current_text.append(data.strip())
+
+    def handle_endtag(self, tag):
+
+        if tag == "a" and self.current_link:
+
+            title = " ".join(
+                x for x in self.current_text
+                if x
+            ).strip()
+
+            if (
+                title
+                and self.current_link
+                and self.current_link not in [
+                    p["url"] for p in self.posts
+                ]
+            ):
+
+                self.posts.append({
+                    "title": title,
+                    "url": self.current_link
+                })
+
+            self.current_link = None
+            self.current_text = []
 
 
-def text(element, name):
-    item = element.find(name)
+class ImageParser(HTMLParser):
 
-    if item is not None and item.text:
-        return item.text.strip()
+    def __init__(self):
 
-    return ""
+        super().__init__()
+
+        self.og_image = ""
+        self.title = ""
+
+    def handle_starttag(self, tag, attrs):
+
+        attrs = dict(attrs)
+
+        if tag == "meta":
+
+            prop = (
+                attrs.get("property")
+                or attrs.get("name")
+                or ""
+            ).lower()
+
+            content = attrs.get("content", "")
+
+            if prop in [
+                "og:image",
+                "twitter:image"
+            ] and content:
+
+                if not self.og_image:
+
+                    self.og_image = content
+
+        if tag == "title":
+
+            self.in_title = True
+
+    def handle_data(self, data):
+
+        if getattr(self, "in_title", False):
+
+            self.title += data
+
+    def handle_endtag(self, tag):
+
+        if tag == "title":
+
+            self.in_title = False
 
 
-def first_image(item):
-    # Procura imagem em media:content
-    for tag in ["media:content", "media:thumbnail"]:
-        element = item.find(tag, NS)
+def fetch(url):
 
-        if element is not None:
-            url = (
-                element.attrib.get("url")
-                or element.attrib.get("href")
-            )
-
-            if url and url.startswith("http"):
-                return url
-
-    # Procura imagem em enclosure
-    enclosure = item.find("enclosure")
-
-    if enclosure is not None:
-        url = enclosure.attrib.get("url")
-
-        if url and url.startswith("http"):
-            return url
-
-    # Procura imagem dentro do conteúdo do artigo
-    encoded = item.find("content:encoded", NS)
-
-    if encoded is not None and encoded.text:
-        html = encoded.text
-
-        match = re.search(
-            r'<img[^>]+(?:src|data-src)=["\']([^"\']+)',
-            html,
-            re.IGNORECASE
-        )
-
-        if match:
-            return unescape(match.group(1))
-
-    # Procura imagem na descrição
-    description = text(item, "description")
-
-    match = re.search(
-        r'<img[^>]+(?:src|data-src)=["\']([^"\']+)',
-        description,
-        re.IGNORECASE
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent":
+            "Mozilla/5.0 (compatible; MonitoreBlogBot/1.0)"
+        }
     )
 
-    if match:
-        return unescape(match.group(1))
+    with urllib.request.urlopen(
+        request,
+        timeout=30
+    ) as response:
 
-    return ""
+        return response.read().decode(
+            "utf-8",
+            errors="ignore"
+        )
+
+
+def get_posts():
+
+    print("Acessando o Blog da Monitore...")
+
+    html = fetch(BLOG_URL)
+
+    parser = BlogParser()
+
+    parser.feed(html)
+
+    return parser.posts[:6]
+
+
+def get_image(url):
+
+    print("Buscando imagem:", url)
+
+    try:
+
+        html = fetch(url)
+
+        parser = ImageParser()
+
+        parser.feed(html)
+
+        return parser.og_image
+
+    except Exception as error:
+
+        print(
+            "Erro ao buscar imagem:",
+            error
+        )
+
+        return ""
 
 
 def main():
 
-    request = urllib.request.Request(
-        RSS,
-        headers={
-            "User-Agent": "Mozilla/5.0 Monitore Blog Updater"
-        }
+    posts = get_posts()
+
+    if not posts:
+
+        print(
+            "Nenhuma postagem encontrada."
+        )
+
+        return
+
+    final_posts = []
+
+    for post in posts:
+
+        image = get_image(
+            post["url"]
+        )
+
+        final_posts.append({
+
+            "title": post["title"],
+
+            "url": post["url"],
+
+            "date": "",
+
+            "image": image
+
+        })
+
+    OUT.write_text(
+
+        json.dumps(
+            final_posts,
+            ensure_ascii=False,
+            indent=2
+        ),
+
+        encoding="utf-8"
+
     )
 
-    try:
+    print(
+        f"{len(final_posts)} "
+        "postagens atualizadas."
+    )
 
-        with urllib.request.urlopen(request, timeout=30) as response:
-            data = response.read()
+    for post in final_posts:
 
-    except Exception as error:
-
-        print("Erro ao acessar o RSS:", error)
-        return
-
-    try:
-
-        root = ET.fromstring(data)
-
-    except Exception as error:
-
-        print("Erro ao interpretar RSS:", error)
-        return
-
-    items = root.findall(".//item")
-
-    posts = []
-
-    for item in items[:6]:
-
-        title = text(item, "title")
-        link = text(item, "link")
-        pub_date = text(item, "pubDate")
-
-        date = ""
-
-        if pub_date:
-
-            try:
-
-                date = parsedate_to_datetime(
-                    pub_date
-                ).strftime("%d.%m.%y")
-
-            except Exception:
-
-                date = pub_date[:10]
-
-        if title and link:
-
-            posts.append({
-                "title": title,
-                "url": link,
-                "date": date,
-                "image": first_image(item)
-            })
-
-    if posts:
-
-        OUT.write_text(
-            json.dumps(
-                posts,
-                ensure_ascii=False,
-                indent=2
-            ),
-            encoding="utf-8"
+        print(
+            post["title"]
         )
 
         print(
-            f"{len(posts)} publicações atualizadas."
-        )
-
-    else:
-
-        print(
-            "Nenhuma publicação encontrada. "
-            "O arquivo atual foi mantido."
+            "Imagem:",
+            post["image"]
         )
 
 
 if __name__ == "__main__":
+
     main()
