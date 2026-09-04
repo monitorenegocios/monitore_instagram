@@ -16,8 +16,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Atualizar posts e imagens do RSS do Wix
-        run: python3 scripts/update_blog.py
+      - name: Testar acesso ao RSS
+    run: |
+    curl -I -L -A "Mozilla/5.0" https://www.monitorenegocios.com.br/blogs/feed
+
+     - name: Atualizar posts e imagens do RSS do Wix
+    run: python3 scripts/update_blog.py
 
       - name: Commit das atualizações
         run: |
