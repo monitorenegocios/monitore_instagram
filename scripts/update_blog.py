@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from html import unescape
 from datetime import datetime
 
-RSS_URL = "https://www.monitorenegocios.com.br/blog-feed.xml"
+RSS_URL = "https://www.monitorenegocios.com.br/blogs/feed"
 OUTPUT_FILE = "data/posts.json"
 MAX_POSTS = 6
 
