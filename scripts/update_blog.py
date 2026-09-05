@@ -1,7 +1,9 @@
 import json
+import re
 import urllib.request
 import xml.etree.ElementTree as ET
 from html import unescape
+from urllib.parse import urljoin
 from datetime import datetime
 
 RSS_URL = "https://www.monitorenegocios.com.br/blogs/feed"
@@ -9,25 +11,73 @@ OUTPUT_FILE = "data/posts.json"
 MAX_POSTS = 6
 
 
-def get_image(item):
-    # Tenta encontrar imagem no RSS
+def get_image_from_rss(item):
+    """Tenta encontrar uma imagem diretamente no RSS."""
     for element in item.iter():
         tag = element.tag.lower()
 
         if "image" in tag:
             url = element.attrib.get("url")
             if url:
-                return url
+                return url.strip()
 
-            if element.text and element.text.startswith("http"):
+            if element.text and element.text.strip().startswith("http"):
                 return element.text.strip()
 
         if tag.endswith("enclosure"):
             url = element.attrib.get("url")
             if url:
-                return url
+                return url.strip()
 
     return ""
+
+
+def get_image_from_page(url):
+    """Busca a imagem de capa do artigo através de og:image."""
+    if not url:
+        return ""
+
+    try:
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0"
+            }
+        )
+
+        with urllib.request.urlopen(request, timeout=30) as response:
+            html = response.read().decode("utf-8", errors="ignore")
+
+        patterns = [
+            r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
+            r'<meta[^>]+name=["\']twitter:image["\'][^>]+content=["\']([^"\']+)["\']',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']twitter:image["\']'
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, html, re.IGNORECASE)
+
+            if match:
+                image_url = unescape(match.group(1).strip())
+                return urljoin(url, image_url)
+
+    except Exception as error:
+        print(f"Não foi possível obter a imagem de {url}: {error}")
+
+    return ""
+
+
+def get_image(item, url):
+    """Primeiro tenta o RSS. Se não encontrar, busca a capa do artigo."""
+    image = get_image_from_rss(item)
+
+    if image:
+        return image
+
+    print(f"Imagem não encontrada no RSS. Buscando capa da página: {url}")
+
+    return get_image_from_page(url)
 
 
 def clean_date(date_text):
@@ -39,14 +89,16 @@ def clean_date(date_text):
             date_text[:25],
             "%a, %d %b %Y %H:%M:%S"
         )
+
         return parsed.strftime("%d.%m.%y")
+
     except Exception:
         return date_text
 
 
 def main():
 
-    print("Acessando RSS do Wix...")
+    print("Acessando RSS do Zoho...")
 
     request = urllib.request.Request(
         RSS_URL,
@@ -88,7 +140,7 @@ def main():
             else ""
         )
 
-        image = get_image(item)
+        image = get_image(item, url)
 
         posts.append({
             "title": title,
