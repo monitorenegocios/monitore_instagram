@@ -2,6 +2,7 @@ name: Atualizar Blog da Monitore
 
 on:
   workflow_dispatch:
+
   schedule:
     - cron: "17 */6 * * *"
 
@@ -13,25 +14,88 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      # 1. Baixar o repositório
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 2. Testar e baixar o RSS
       - name: Testar acesso ao RSS
         run: |
-          curl -I -L -A "Mozilla/5.0" https://www.monitorenegocios.com.br/blogs/feed -o /tmp/rss.xml
-          echo "RSS acessado com sucesso."
+          echo "========================================"
+          echo "Testando acesso ao RSS do blog..."
+          echo "========================================"
 
+          curl -L \
+            --retry 5 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            --connect-timeout 20 \
+            --max-time 90 \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140 Safari/537.36" \
+            "https://www.monitorenegocios.com.br/blogs/feed" \
+            -o /tmp/rss.xml
+
+          echo ""
+          echo "RSS baixado com sucesso."
+
+          echo ""
+          echo "Tamanho do arquivo:"
+          ls -lh /tmp/rss.xml
+
+          echo ""
+          echo "Primeiras linhas do RSS:"
+          head -20 /tmp/rss.xml
+
+          echo ""
+          echo "========================================"
+          echo "Teste do RSS concluído."
+          echo "========================================"
+
+      # 3. Atualizar posts e imagens
       - name: Atualizar posts e imagens do RSS do Zoho
-        run: python3 scripts/update_blog.py
+        run: |
+          echo "Atualizando posts do blog..."
+          python3 scripts/update_blog.py
 
+      # 4. Verificar se houve alteração
+      - name: Verificar alterações
+        run: |
+          echo "========================================"
+          echo "Verificando alterações..."
+          echo "========================================"
+
+          git status --short
+
+          if git diff --quiet data/posts.json; then
+            echo "Nenhuma alteração encontrada em data/posts.json."
+          else
+            echo "Novas alterações encontradas."
+          fi
+
+      # 5. Commit das atualizações
       - name: Commit das atualizações
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/posts.json
-          git diff --cached --quiet || git commit -m "chore: atualizar posts do blog"
 
+          git add data/posts.json
+
+          if git diff --cached --quiet; then
+            echo "Nenhuma atualização para realizar."
+          else
+            git commit -m "chore: atualizar posts do blog"
+            echo "Atualizações commitadas."
+          fi
+
+      # 6. Sincronizar e enviar
       - name: Sincronizar e enviar atualizações
         run: |
           git pull --rebase origin main
-          git push
+
+          if git log -1 --pretty=%B | grep -q "chore: atualizar posts do blog"; then
+            git push
+            echo "Atualizações enviadas para o GitHub."
+          else
+            echo "Nenhuma nova atualização para enviar."
+          fi
