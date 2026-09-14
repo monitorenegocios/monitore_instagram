@@ -1,5 +1,11 @@
 [
   {
+    "title": "Gestão de Tempo",
+    "url": "https://www.monitorenegocios.com.br/blogs/post/gestaodetempo",
+    "date": "14.09.26",
+    "image": "https://www.monitorenegocios.com.br/capa blog mne -1--1.png"
+  },
+  {
     "title": "Primeiro QUEM, depois O QUÊ",
     "url": "https://www.monitorenegocios.com.br/blogs/post/primeiroquemdepoisoque",
     "date": "06.09.26",
@@ -28,11 +34,5 @@
     "url": "https://www.monitorenegocios.com.br/blogs/post/copadomundoelideranca",
     "date": "20.06.26",
     "image": "https://www.monitorenegocios.com.br/capa blog mne -56-.png"
-  },
-  {
-    "title": "Ambidestria Organizacional",
-    "url": "https://www.monitorenegocios.com.br/blogs/post/ambidestriaorganizacional",
-    "date": "04.06.26",
-    "image": "https://www.monitorenegocios.com.br/capa blog mne -51-.png"
   }
 ]
