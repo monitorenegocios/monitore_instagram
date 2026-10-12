@@ -1,5 +1,11 @@
 [
   {
+    "title": "Consultoria Hands On",
+    "url": "https://www.monitorenegocios.com.br/blogs/post/consultoriahandson",
+    "date": "12.10.26",
+    "image": "https://www.monitorenegocios.com.br/capa blog mne -3--1.png"
+  },
+  {
     "title": "A Gestão antes da tecnologia",
     "url": "https://www.monitorenegocios.com.br/blogs/post/gestaoantesdatecnologia",
     "date": "28.09.26",
@@ -28,11 +34,5 @@
     "url": "https://www.monitorenegocios.com.br/blogs/post/balanced-scorecard-bsc",
     "date": "01.08.26",
     "image": "https://www.monitorenegocios.com.br/capa blog mne -53--1.png"
-  },
-  {
-    "title": "Inteligência Artificial na Gestão e Liderança",
-    "url": "https://www.monitorenegocios.com.br/blogs/post/ianagestaoelideranca",
-    "date": "12.07.26",
-    "image": "https://www.monitorenegocios.com.br/liderança e ia.png"
   }
 ]
